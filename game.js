@@ -1246,7 +1246,23 @@ class Game {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  BOOTSTRAP
+//  BOOTSTRAP — diferido hasta que el DOM esté completamente parseado.
+//  Necesario porque GitHub Pages puede ejecutar módulos antes de que el parser
+//  termine, haciendo que getElementById devuelva null en el constructor.
 // ═══════════════════════════════════════════════════════════════════════════════
-const game = new Game();
-game.init();
+function _bootstrap() {
+  if (!document.getElementById('c') ||
+      !document.getElementById('ov-btn') ||
+      !document.getElementById('btn-pause')) {
+    requestAnimationFrame(_bootstrap);
+    return;
+  }
+  const game = new Game();
+  game.init();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootstrap);
+} else {
+  _bootstrap();
+}
