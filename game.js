@@ -1167,8 +1167,10 @@ class Game {
     document.getElementById('ov-title').textContent = title;
     document.getElementById('ov-sub').textContent   = sub;
     document.getElementById('ov-tip').style.display = 'none';
-    const btn = document.getElementById('ov-btn');
-    btn.textContent = btnTxt; btn.onclick = btnCb;
+    // Guardamos el callback en la instancia — _bindUI lo lee desde _ovCallback.
+    // NO usamos btn.onclick porque pisaría los addEventListener permanentes.
+    document.getElementById('ov-btn').textContent = btnTxt;
+    this._ovCallback = btnCb;
     document.getElementById('overlay').classList.remove('off');
   }
 
@@ -1236,11 +1238,32 @@ class Game {
 
   _bindUI() {
     document.getElementById('btn-pause').addEventListener('click', () => this._togglePause());
-    const startOnce = () => { initAudio(); this.start(); };
-    document.getElementById('ov-btn').addEventListener('click', startOnce, { once:true });
-    document.getElementById('ov-btn').addEventListener('touchstart', e => {
-      e.preventDefault(); startOnce();
-    }, { once:true, passive:false });
+
+    // Botón de inicio / overlay — NO usamos { once:true } porque _showOverlay()
+    // reutiliza el mismo #ov-btn y necesita listeners permanentes.
+    // Un flag manual evita doble disparo click+touchstart en móvil.
+    let _overlayBusy = false;
+    const _overlayAction = (e) => {
+      if (e && e.type === 'touchstart') e.preventDefault();
+      if (_overlayBusy) return;
+      _overlayBusy = true;
+      // Leer el callback asignado por _showOverlay (o arrancar el juego la primera vez)
+      const cb = this._ovCallback;
+      if (cb) {
+        this._ovCallback = null;
+        cb();
+      } else {
+        initAudio();
+        this.start();
+      }
+      // Liberar el flag tras un tick para absorber el evento gemelo (touch→click)
+      setTimeout(() => { _overlayBusy = false; }, 80);
+    };
+
+    const ovBtn = document.getElementById('ov-btn');
+    ovBtn.addEventListener('click',      _overlayAction);
+    ovBtn.addEventListener('touchstart', _overlayAction, { passive: false });
+
     window.addEventListener('resize', () => { if (this.state.running) this.resizeCanvas(); });
   }
 }
